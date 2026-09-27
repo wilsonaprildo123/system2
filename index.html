@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>QE Control Tower</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:#f5f6f8;color:#20242a}
+button,input,select,textarea{font:inherit}button{cursor:pointer;border:0}.app{display:flex;min-height:100vh}
+.sidebar{width:230px;background:#171a1f;color:#fff;padding:22px 14px;position:fixed;inset:0 auto 0 0;z-index:5}
+.logo{font-size:19px;font-weight:700;padding:0 12px 16px}.logo span{font-weight:400;color:#9da5b1}
+.local-badge{font-size:11px;background:#4a5568;color:#fff;padding:4px 8px;border-radius:12px;display:inline-block;margin:0 12px 16px;font-weight:600}
+.nav button{display:block;width:100%;background:transparent;color:#cbd0d8;text-align:left;padding:11px 12px;border-radius:8px;margin:4px 0}.nav button.active,.nav button:hover{background:#2a2f37;color:#fff}
+.main{margin-left:230px;width:calc(100% - 230px);padding:28px;max-width:1500px}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px}.top h1{margin:0;font-size:25px}.sub{color:#707780;font-size:13px;margin-top:4px}
+.primary{background:#1f6feb;color:white;padding:10px 16px;border-radius:8px;font-weight:600;display:inline-flex;align-items:center;gap:6px}
+.secondary{background:#fff;border:1px solid #d8dce2;padding:9px 14px;border-radius:8px;font-weight:500}
+.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:22px}.card{background:#fff;border:1px solid #e1e4e8;border-radius:10px;padding:16px;position:relative;overflow:hidden}.card .num{font-size:26px;font-weight:700;margin-top:5px}.label{font-size:12px;color:#747b84}.red{color:#c62828}.orange{color:#c56b00}.green{color:#218739}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.panel{background:#fff;border:1px solid #e1e4e8;border-radius:10px;padding:18px;margin-bottom:18px}.panel h2{font-size:16px;margin:0 0 14px}
+.table{width:100%;border-collapse:collapse}.table th,.table td{padding:11px 8px;border-bottom:1px solid #edf0f2;text-align:left;font-size:13px}.table th{font-size:11px;text-transform:uppercase;color:#7a8088}
+.status{padding:4px 8px;border-radius:20px;font-size:11px;display:inline-block;background:#eef1f4}
+.status.open{background:#fff3d9;color:#8b5b00}
+.status.progress{background:#e7f0ff;color:#1856a8}
+.status.wait{background:#f0eafa;color:#65429b}
+.status.closed{background:#e6f5ea;color:#24733a}
+.bar{height:9px;background:#edf0f3;border-radius:5px;overflow:hidden;margin-top:6px}.bar i{display:block;height:100%;background:#6b7280}
+.toolbar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}.toolbar input,.toolbar select{padding:9px 10px;border:1px solid #d8dce2;border-radius:7px;background:#fff}
+.page{display:none}.page.active{display:block}
+.case-row{cursor:pointer}.case-row:hover{background:#fafbfc}
+.formgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.field label{display:block;font-size:11px;color:#6e747d;margin-bottom:5px}
+.field input,.field select,.field textarea{width:100%;border:1px solid #d7dbe0;border-radius:7px;padding:9px;background:#fff}
+.field textarea{min-height:85px;resize:vertical}.full{grid-column:1/-1}
+.modal{position:fixed;inset:0;background:#0008;display:none;align-items:center;justify-content:center;padding:20px;z-index:20}
+.modal.show{display:flex}
+.modalbox{background:#fff;border-radius:12px;width:min(900px,100%);max-height:92vh;overflow:auto;padding:22px;box-shadow:0 20px 25px -5px rgba(0,0,0,0.2)}
+.modalhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}.close{background:#eef0f2;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.detailgrid{display:grid;grid-template-columns:2fr 1fr;gap:18px}
+.empty{padding:28px;text-align:center;color:#818891}
+#toast-container{position:fixed;bottom:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:10px}
+.toast{background:#171a1f;color:#fff;padding:12px 18px;border-radius:8px;box-shadow:0 10px 15px -3px rgba(0,0,0,0.3);font-size:13px;border-left:4px solid #1f6feb;animation:slideIn 0.3s ease-out;max-width:340px}
+.toast.alert{border-left-color:#c62828}
+.toast.success{border-left-color:#218739}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+@media(max-width:1100px){.grid2{grid-template-columns:1fr}}
+@media(max-width:900px){.sidebar{width:70px}.logo{font-size:0}.logo:after{content:"QE";font-size:18px}.local-badge{display:none}.nav button{font-size:0}.nav button:before{content:"•";font-size:18px}.main{margin-left:70px;width:calc(100% - 70px);padding:16px}.cards{grid-template-columns:repeat(2,1fr)}.grid2,.detailgrid,.formgrid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="toast-container"></div>
+<div class="app">
+<aside class="sidebar">
+  <div class="logo">QE <span>Control Tower</span></div>
+  <div class="local-badge">💾 Local Storage Mode</div>
+  <button class="secondary" onclick="selectLocalFolder()" style="width:calc(100% - 24px);margin:0 12px 8px;font-size:11px;padding:8px">📁 Pilih Folder Laptop</button>
+  <button class="primary" onclick="refreshSystemData()" style="width:calc(100% - 24px);margin:0 12px 16px;font-size:11px;padding:8px;background:#238636">🔄 Refresh System</button>
+  <div class="nav">
+    <button class="active" onclick="showPage('dashboard',this)">Dashboard</button>
+    <button onclick="showPage('cases',this)">Cases</button>
+    <button onclick="showPage('improvements',this)">Improvements</button>
+    <button onclick="showPage('knowledge',this)">Knowledge Base</button>
+  </div>
+  <div id="user-display" style="font-size:10px;color:#9da5b1;padding:12px;margin-top:auto">Storage: <b>Browser Local</b></div>
+</aside>
+
+<main class="main">
+<section id="dashboard" class="page active">
+  <div class="top">
+    <div><h1>QE Control Tower</h1><div class="sub">Live Quality Abnormality & Workload Tracking (Process-Category Breakdown)</div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="secondary" onclick="exportData()">💾 Export JSON</button>
+      <button class="secondary" onclick="importDataPrompt()">📂 Import JSON</button>
+      <button class="primary" onclick="openNewCase()">+ New Case</button>
+    </div>
+  </div>
+  <div class="cards" id="cards"></div>
+  <div class="grid2" style="margin-bottom:18px">
+    <div class="panel" style="margin-bottom:0"><h2>Priority / Follow-up</h2><div id="priority"></div></div>
+    <div class="panel" style="margin-bottom:0"><h2>Process Breakdown (with Categories)</h2><div id="processCategoryChart"></div></div>
+  </div>
+  <div class="panel"><h2>Recent Cases</h2><div id="recent"></div></div>
+</section>
+
+<section id="cases" class="page">
+  <div class="top"><div><h1>Cases</h1><div class="sub">Customer complaints, internal issues and quality abnormalities</div></div><button class="primary" onclick="openNewCase()">+ New Case</button></div>
+  <div class="panel">
+    <div class="toolbar">
+      <input id="search" placeholder="Search model, S/N, problem..." oninput="renderCases()">
+      <select id="filterStatus" onchange="renderCases()">
+        <option value="">All Status</option>
+        <option>New</option>
+        <option>Investigation</option>
+        <option>Action</option>
+        <option>Waiting</option>
+        <option>Verification</option>
+        <option>Closed</option>
+      </select>
+      <select id="filterType" onchange="renderCases()">
+        <option value="">All Types</option>
+        <option>Customer Complaint</option>
+        <option>Internal Issue</option>
+        <option>Process Risk</option>
+      </select>
+      <select id="filterReporterDept" onchange="renderCases()">
+        <option value="">All Department</option>
+        <option value="DIP">DIP</option>
+        <option value="SMT">SMT</option>
+        <option value="ATE">ATE</option>
+        <option value="RE">RE</option>
+      </select>
+    </div>
+    <div id="caseTable"></div>
+  </div>
+</section>
+
+<section id="improvements" class="page">
+  <div class="top"><div><h1>Improvements</h1><div class="sub">Proactive work: prevent problems before they become complaints</div></div><button class="primary" onclick="openNewImprovement()">+ New Improvement</button></div>
+  <div class="panel">
+    <div class="toolbar">
+      <input id="impSearch" placeholder="Search improvements..." oninput="renderImprovements()">
+      <select id="filterImpStatus" onchange="renderImprovements()">
+        <option value="">All Status</option>
+        <option>New</option>
+        <option>Investigation</option>
+        <option>In Progress</option>
+        <option>Verification</option>
+        <option>Closed</option>
+      </select>
+    </div>
+    <div id="improvementTable"></div>
+  </div>
+</section>
+
+<section id="knowledge" class="page">
+  <div class="top"><div><h1>Knowledge Base</h1><div class="sub">Reusable lessons from closed QE cases</div></div></div>
+  <div class="panel"><div class="toolbar"><input id="kbSearch" placeholder="Search problem / root cause / lesson..." oninput="renderKB()"></div><div id="kb"></div></div>
+</section>
+</main>
+</div>
+
+<div class="modal" id="caseModal">
+<div class="modalbox">
+  <div class="modalhead"><h2 id="modalTitle">New Case</h2><button class="close" onclick="closeModal()">×</button></div>
+  <form id="caseForm" onsubmit="saveCase(event)">
+  <div class="formgrid">
+    <div class="field"><label>Case Type</label><select id="f_type"><option>Customer Complaint</option><option>Internal Issue</option><option>Process Risk</option></select></div>
+    <div class="field"><label>Department</label>
+      <select id="f_reporterDept">
+        <option value="DIP">DIP</option>
+        <option value="SMT">SMT</option>
+        <option value="ATE">ATE</option>
+        <option value="RE">RE</option>
+      </select>
+    </div>
+    <div class="field"><label>Customer</label><input id="f_customer"></div>
+    <div class="field"><label>Model</label><input id="f_model" placeholder="e.g. 106000"></div>
+    <div class="field"><label>Serial Number</label><input id="f_sn"></div>
+    <div class="field"><label>Process</label><select id="f_process"><option>SMT</option><option>DIP</option><option>TAP</option><option>Testing</option><option>Packing</option><option>IQC</option><option>Other</option></select></div>
+    <div class="field"><label>Category</label><select id="f_category"><option>Soldering</option><option>Component</option><option>AOI</option><option>Label</option><option>Firmware</option><option>PCB</option><option>Testing</option><option>Process Control</option><option>Other</option></select></div>
+    <div class="field"><label>Severity</label><select id="f_severity"><option>Minor</option><option>Major</option><option>Critical</option></select></div>
+    <div class="field"><label>Owner</label><input id="f_owner" placeholder="PE / SMT / DIP / QE"></div>
+    <div class="field"><label>Due Date</label><input id="f_due" type="date"></div>
+    <div class="field"><label>Status</label><select id="f_status"><option>New</option><option>Investigation</option><option>Action</option><option>Waiting</option><option>Verification</option><option>Closed</option></select></div>
+    <div class="field full"><label>Problem Statement</label><textarea id="f_problem" placeholder="What happened? Keep it factual."></textarea></div>
+    <div class="field full"><label>Containment / Immediate Action</label><textarea id="f_containment"></textarea></div>
+    <div class="field"><label>Root Cause</label><textarea id="f_root"></textarea></div>
+    <div class="field"><label>Corrective Action</label><textarea id="f_ca"></textarea></div>
+    <div class="field"><label>Preventive Action</label><textarea id="f_pa"></textarea></div>
+    <div class="field"><label>Verification / Effectiveness</label><textarea id="f_verify"></textarea></div>
+    <div class="field full"><label>Evidence & Attachments (Max 10 files, Max 100MB each)</label><input type="file" id="f_evidence" multiple accept="image/*,.pdf,.doc,.docx" onchange="previewEvidenceFiles(event)"><div id="evidence_preview" style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"></div></div>
+  </div>
+  <div style="display:flex;justify-content:space-between;margin-top:18px">
+    <button type="button" class="secondary" onclick="aiAnalyze()">✦ AI Analyze</button>
+    <div><button type="button" class="secondary" onclick="closeModal()">Cancel</button> <button class="primary" id="saveCaseBtn">Save Case</button></div>
+  </div>
+  </form>
+</div></div>
+
+<div class="modal" id="detailModal">
+<div class="modalbox">
+  <div class="modalhead"><div><h2 id="detailTitle"></h2><div id="detailSub"></div></div><button class="close" onclick="closeDetail()">×</button></div>
+  <div id="detailBody"></div>
+</div></div>
+
+<div class="modal" id="improvementModal">
+<div class="modalbox">
+  <div class="modalhead"><h2 id="impModalTitle">New Improvement</h2><button class="close" onclick="closeImpModal()">×</button></div>
+  <form id="impForm" onsubmit="saveImprovement(event)">
+  <div class="formgrid">
+    <div class="field full"><label>Improvement Title</label><input id="imp_title" required placeholder="e.g. Packing count verification"></div>
+    <div class="field"><label>Process</label><select id="imp_process"><option>SMT</option><option>DIP</option><option>TAP</option><option>Testing</option><option>Packing</option><option>IQC</option><option>Process Control</option><option>Other</option></select></div>
+    <div class="field"><label>Owner</label><input id="imp_owner" placeholder="QE / PE"></div>
+    <div class="field"><label>Due Date</label><input id="imp_due" type="date"></div>
+    <div class="field"><label>Status</label><select id="imp_status"><option>New</option><option>Investigation</option><option>In Progress</option><option>Verification</option><option>Closed</option></select></div>
+    <div class="field full"><label>Description / Details</label><textarea id="imp_desc" placeholder="Describe the proactive quality enhancement initiative..."></textarea></div>
+  </div>
+  <div style="display:flex;justify-content:flex-end;margin-top:18px;gap:8px">
+    <button type="button" class="secondary" onclick="closeImpModal()">Cancel</button>
+    <button class="primary" id="saveImpBtn">Save Improvement</button>
+  </div>
+  </form>
+</div></div>
+
+<div class="modal" id="impDetailModal">
+<div class="modalbox">
+  <div class="modalhead"><div><h2 id="impDetailTitle"></h2><div id="impDetailSub"></div></div><button class="close" onclick="closeImpDetail()">×</button></div>
+  <div id="impDetailBody"></div>
+</div></div>
+
+<div class="modal" id="imageModal" onclick="closeImageModal()">
+  <div style="background:#000;padding:10px;border-radius:8px;max-width:90vw;max-height:90vh;position:relative;display:flex;align-items:center;justify-content:center" onclick="event.stopPropagation()">
+    <button type="button" onclick="closeImageModal()" style="position:absolute;top:10px;right:10px;background:#333;color:#fff;border-radius:50%;width:32px;height:32px;font-size:18px;line-height:32px;text-align:center;cursor:pointer;z-index:10">×</button>
+    <img id="lightboxImg" src="" style="max-width:85vw;max-height:85vh;object-fit:contain;border-radius:4px">
+  </div>
+</div>
+
+<script>
+const KEY_CASES = "qe_local_storage_cases_v5";
+const KEY_IMPS = "qe_local_storage_improvements_v5";
+
+const DB_NAME = 'QE_ControlTower_DB';
+const STORE_NAME = 'evidence_store';
+let db = null;
+
+function initDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      db = request.result;
+      resolve(db);
+    };
+    request.onupgradeneeded = (e) => {
+      const database = e.target.result;
+      if (!database.objectStoreNames.contains(STORE_NAME)) {
+        database.createObjectStore(STORE_NAME);
+      }
+    };
+  });
+}
+
+function saveEvidenceToIDB(caseId, evidenceArray) {
+  return new Promise((resolve, reject) => {
+    if (!db) { resolve(); return; }
+    const transaction = db.transaction(STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.put(evidenceArray, caseId);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function getEvidenceFromIDB(caseId) {
+  return new Promise((resolve, reject) => {
+    if (!db) { resolve([]); return; }
+    const transaction = db.transaction(STORE_NAME, 'readonly');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.get(caseId);
+    request.onsuccess = () => resolve(request.result || []);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+const defaultCases = [
+  {id:"QE-2026-001",type:"Customer Complaint",reporterDept:"SMT",customer:"Customer A",model:"106000",sn:"E0008453",process:"SMT",category:"Soldering",severity:"Major",owner:"SMT PE",due:"2026-10-15",status:"Investigation",problem:"Solder abnormality reported on PCB.",containment:"Hold affected lot and inspect related S/N.",root:"",ca:"",pa:"",verify:"",created:"2026-09-25"},
+  {id:"QE-2026-002",type:"Internal Issue",reporterDept:"DIP",customer:"",model:"105961",sn:"E0004062",process:"DIP",category:"Component",severity:"Major",owner:"DIP PE",due:"2026-10-12",status:"Action",problem:"Component damage caused during pressing process.",containment:"Segregate affected PCB.",root:"Pressing process handling issue.",ca:"Review pressing operation.",pa:"Add process check.",verify:"",created:"2026-09-24"},
+  {id:"QE-2026-003",type:"Process Risk",reporterDept:"ATE",customer:"",model:"",sn:"",process:"Testing",category:"Firmware",severity:"Critical",owner:"Engineering",due:"2026-10-20",status:"New",problem:"Same model may require different firmware for special customer requests.",containment:"Require firmware ID verification before testing.",root:"Manual selection from memory.",ca:"Create firmware master list.",pa:"Link required firmware to model/variant.",verify:"",created:"2026-09-04"}
+];
+
+const defaultImprovements = [
+  {id:"IMP-2026-001",title:"Packing count verification",process:"Packing",owner:"QE",due:"2026-10-25",status:"In Progress",description:"Reduce scan/system count mismatch risk before sealing boxes."},
+  {id:"IMP-2026-002",title:"Label version control",process:"Process Control",owner:"QE / PE",due:"2026-10-30",status:"Investigation",description:"Improve customer data → PE review → DCC release control."}
+];
+
+let cases = JSON.parse(localStorage.getItem(KEY_CASES) || "null") || defaultCases;
+let improvements = JSON.parse(localStorage.getItem(KEY_IMPS) || "null") || defaultImprovements;
+let editingId = null;
+let editingImpId = null;
+let uploadedEvidence = [];
+let rootDirHandle = null;
+
+async function selectLocalFolder() {
+  try {
+    if (!window.showDirectoryPicker) {
+      showToast("Browser Anda tidak mendukung File System Access API. Gunakan Google Chrome atau Microsoft Edge.", "alert");
+      return;
+    }
+    rootDirHandle = await window.showDirectoryPicker();
+    showToast("Folder laptop berhasil terhubung! File upload akan disimpan otomatis ke folder tersebut.", "success");
+  } catch(err) {
+    console.error(err);
+  }
+}
+
+window.refreshSystemData = async function() {
+  cases = JSON.parse(JSON.stringify(defaultCases));
+  improvements = JSON.parse(JSON.stringify(defaultImprovements));
+  localStorage.setItem(KEY_CASES, JSON.stringify(cases));
+  localStorage.setItem(KEY_IMPS, JSON.stringify(improvements));
+  renderDashboard();
+  renderCases();
+  renderImprovements();
+  renderKB();
+  showToast("🔄 System successfully refreshed with up-to-date demo records!", "success");
+};
+
+function saveStorage() {
+  localStorage.setItem(KEY_CASES, JSON.stringify(cases));
+  localStorage.setItem(KEY_IMPS, JSON.stringify(improvements));
+}
+
+window.addEventListener('DOMContentLoaded', async () => {
+  try {
+    await initDB();
+  } catch(e) {
+    console.warn("IndexedDB init note:", e);
+  }
+  renderDashboard();
+  renderCases();
+  renderImprovements();
+  renderKB();
+});
+
+function showToast(message, type="info") {
+  const container = document.getElementById("toast-container");
+  if(!container) return;
+  const t = document.createElement("div");
+  t.className = `toast ${type}`;
+  t.innerHTML = `<b>${type==='alert'?'🚨 Alert':type==='success'?'✅ Success':'⚡ Notice'}</b><br>${message}`;
+  container.appendChild(t);
+  setTimeout(()=>{ t.style.opacity='0'; setTimeout(()=>t.remove(), 300); }, 3500);
+}
+
+window.exportData = async function() {
+  let casesWithEvidence = [];
+  for(let c of cases) {
+    let ev = await getEvidenceFromIDB(c.id);
+    casesWithEvidence.push({...c, evidence: ev});
+  }
+  const data = { cases: casesWithEvidence, improvements };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type : 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `qe_control_tower_backup_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  showToast("Control Tower backup exported successfully!", "success");
+};
+
+window.importDataPrompt = function() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = async event => {
+      try {
+        const parsed = JSON.parse(event.target.result);
+        if(parsed.cases) {
+          cases = parsed.cases.map(c => {
+            let ev = c.evidence || [];
+            delete c.evidence;
+            saveEvidenceToIDB(c.id, ev);
+            return c;
+          });
+        }
+        if(parsed.improvements) improvements = parsed.improvements;
+        saveStorage();
+        renderDashboard();
+        renderCases();
+        renderImprovements();
+        renderKB();
+        showToast("Data imported successfully!", "success");
+      } catch(err) {
+        showToast("Invalid JSON backup file.", "alert");
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+};
+
+window.previewEvidenceFiles = async function(e) {
+  const files = e.target.files;
+  const MAX_FILES = 10;
+  const MAX_FILE_SIZE = 100 * 1024 * 1024;
+
+  if (uploadedEvidence.length + files.length > MAX_FILES) {
+    showToast(`⚠️ Maksimal total file adalah ${MAX_FILES}.`, "alert");
+    e.target.value = "";
+    return;
+  }
+
+  for (let file of files) {
+    if (file.size > MAX_FILE_SIZE) {
+      showToast(`⚠️ File "${file.name}" melebihi batas 100MB.`, "alert");
+      continue;
+    }
+
+    if (rootDirHandle) {
+      try {
+        const fileHandle = await rootDirHandle.getFileHandle(file.name, { create: true });
+        const writable = await fileHandle.createWritable();
+        await writable.write(file);
+        await writable.close();
+        showToast(`File ${file.name} tersimpan langsung ke folder laptop!`, "success");
+      } catch(err) {
+        console.error("Gagal menyimpan ke folder laptop", err);
+      }
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(uploadEvent) {
+      const resultData = uploadEvent.target.result;
+      const fileType = file.type || "";
+      uploadedEvidence.push({ name: file.name, type: fileType || 'application/octet-stream', data: resultData });
+      renderEvidencePreview();
+    };
+    reader.readAsDataURL(file);
+  }
+};
+
+function renderEvidencePreview() {
+  const container = document.getElementById("evidence_preview");
+  if(!container) return;
+  container.innerHTML = uploadedEvidence.map((ev, idx) => `
+    <div style="position:relative;border:1px solid #ddd;border-radius:6px;padding:4px;width:80px;height:80px;display:flex;align-items:center;justify-content:center;background:#f9f9f9;overflow:hidden">
+      ${ev.type.startsWith('image/') ? `<img src="${ev.data}" style="max-width:100%;max-height:100%;object-fit:cover;cursor:pointer" onclick="openLightbox('${ev.data}')">` : `<span style="font-size:10px;text-align:center;word-break:break-all">${ev.name}</span>`}
+      <button type="button" onclick="removeEvidence(${idx})" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,0.6);color:#fff;border-radius:50%;width:16px;height:16px;font-size:10px;line-height:16px;text-align:center;cursor:pointer">×</button>
+    </div>
+  `).join('');
+}
+
+window.removeEvidence = function(idx) {
+  uploadedEvidence.splice(idx, 1);
+  renderEvidencePreview();
+};
+
+window.openLightbox = function(url) {
+  document.getElementById("lightboxImg").src = url;
+  document.getElementById("imageModal").classList.add("show");
+};
+
+window.closeImageModal = function() {
+  document.getElementById("imageModal").classList.remove("show");
+};
+
+window.showPage = function(id, btn) {
+  document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+  document.querySelectorAll(".nav button").forEach(x=>x.classList.remove("active"));
+  if(btn) btn.classList.add("active");
+  if(id==="dashboard")renderDashboard();
+  if(id==="cases")renderCases();
+  if(id==="improvements")renderImprovements();
+  if(id==="knowledge")renderKB();
+};
+
+function statusClass(s){return s==="Closed"?"closed":s==="Waiting"?"wait":s==="New"?"open":"progress"}
+function overdue(c){return c.status!=="Closed" && c.due && new Date(c.due+"T23:59:59")<new Date()}
+
+function renderDashboard(){
+  let open = cases.filter(c=>c.status!=="Closed").length, 
+      over = cases.filter(overdue).length, 
+      cust = cases.filter(c=>c.type==="Customer Complaint"&&c.status!=="Closed").length, 
+      verify = cases.filter(c=>c.status==="Verification").length, 
+      imp = improvements.filter(x=>x.status!=="Closed").length;
+
+  document.getElementById("cards").innerHTML=`
+    <div class="card"><div class="label">Open Cases</div><div class="num">${open}</div></div>
+    <div class="card"><div class="label">Overdue</div><div class="num red">${over}</div></div>
+    <div class="card"><div class="label">Customer Complaints</div><div class="num">${cust}</div></div>
+    <div class="card"><div class="label">Verification</div><div class="num orange">${verify}</div></div>
+    <div class="card"><div class="label">Open Improvements</div><div class="num green">${imp}</div></div>
+  `;
+
+  let p = cases.filter(c=>c.status!=="Closed").sort((a,b)=>(overdue(b)-overdue(a))||a.due.localeCompare(b.due)).slice(0,6);
+  document.getElementById("priority").innerHTML = p.length ? p.map(c=>`<div style="padding:10px 0;border-bottom:1px solid #eee;cursor:pointer" onclick="openDetail('${c.id}')"><b>${c.id}</b> — ${c.problem.slice(0,55)}<br><span class="label">Dept: ${c.reporterDept||"—"} · Owner: ${c.owner||"Unassigned"} · Due ${c.due||"—"} ${overdue(c)?'<span class="red">· OVERDUE</span>':''}</span></div>`).join("") : `<div class="empty">No open cases</div>`;
+
+  // Upgraded: Process Breakdown with Categories
+  let processMap = {};
+  cases.forEach(c => {
+    let proc = c.process || 'Other';
+    let cat = c.category || 'Other';
+    if(!processMap[proc]) processMap[proc] = { total: 0, categories: {} };
+    processMap[proc].total++;
+    processMap[proc].categories[cat] = (processMap[proc].categories[cat] || 0) + 1;
+  });
+
+  let maxProc = Math.max(1, ...Object.values(processMap).map(x => x.total));
+  document.getElementById("processCategoryChart").innerHTML = Object.keys(processMap).length ? Object.entries(processMap).map(([proc, data]) => {
+    let catList = Object.entries(data.categories).map(([cat, cnt]) => 
+      `<span style="background:#eef1f4;color:#333;padding:2px 7px;border-radius:4px;font-size:11px;display:inline-block;margin:2px 4px 2px 0;">${cat}: <b>${cnt}</b></span>`
+    ).join("");
+    return `
+      <div style="margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #edf0f2;">
+        <div style="font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center">
+          <span>⚙️ ${proc}</span>
+          <span style="background:#1f6feb;color:#fff;padding:1px 8px;border-radius:10px;font-size:11px">${data.total} cases</span>
+        </div>
+        <div class="bar" style="margin:6px 0 8px 0;"><i style="width:${data.total/maxProc*100}%;background:#1f6feb"></i></div>
+        <div style="display:flex;flex-wrap:wrap;gap:2px;">${catList}</div>
+      </div>
+    `;
+  }).join("") : `<div class="empty">No process data available</div>`;
+
+  document.getElementById("recent").innerHTML = table(cases.slice().sort((a,b)=>(b.created||"").localeCompare(a.created||"")).slice(0,8));
+}
+
+function table(arr){
+  if(!arr.length)return'<div class="empty">No records</div>';
+  return`<table class="table"><thead><tr><th>ID</th><th>Open Date</th><th>Department</th><th>Problem</th><th>Process</th><th>Owner</th><th>Due</th><th>Status</th></tr></thead><tbody>${arr.map(c=>`<tr class="case-row" onclick="openDetail('${c.id}')"><td><b>${c.id}</b></td><td style="font-size:12px;color:#555">${c.created||"—"}</td><td><span style="background:#eef1f4;padding:2px 6px;border-radius:4px;font-size:11px">${c.reporterDept||"—"}</span></td><td>${(c.problem||"").slice(0,45)}</td><td>${c.process}</td><td>${c.owner||"—"}</td><td class="${overdue(c)?'red':''}">${c.due||"—"}</td><td><span class="status ${statusClass(c.status)}">${c.status}</span></td></tr>`).join("")}</tbody></table>`;
+}
+
+window.renderCases = function(){
+  let q = (document.getElementById("search")?.value||"").toLowerCase(),
+      s = document.getElementById("filterStatus")?.value||"",
+      t = document.getElementById("filterType")?.value||"",
+      r = document.getElementById("filterReporterDept")?.value||"";
+  let a = cases.filter(c => (!q || JSON.stringify(c).toLowerCase().includes(q)) && (!s || c.status===s) && (!t || c.type===t) && (!r || c.reporterDept===r));
+  document.getElementById("caseTable").innerHTML = table(a);
+};
+
+window.openNewCase = function(){
+  editingId = null;
+  uploadedEvidence = [];
+  document.getElementById("caseForm").reset();
+  document.getElementById("evidence_preview").innerHTML = "";
+  document.getElementById("modalTitle").textContent = "New Case";
+  document.getElementById("caseModal").classList.add("show");
+};
+
+window.closeModal = function(){ document.getElementById("caseModal").classList.remove("show"); };
+function val(id){ return document.getElementById(id).value; }
+
+window.saveCase = async function(e){
+  e.preventDefault();
+  let cId = editingId || "QE-2026-"+String(cases.length+10).padStart(3,"0");
+  let c = {
+    id: cId,
+    type: val("f_type"),
+    reporterDept: val("f_reporterDept"),
+    customer: val("f_customer"),
+    model: val("f_model"),
+    sn: val("f_sn"),
+    process: val("f_process"),
+    category: val("f_category"),
+    severity: val("f_severity"),
+    owner: val("f_owner"),
+    due: val("f_due"),
+    status: val("f_status"),
+    problem: val("f_problem"),
+    containment: val("f_containment"),
+    root: val("f_root"),
+    ca: val("f_ca"),
+    pa: val("f_pa"),
+    verify: val("f_verify"),
+    created: editingId ? (cases.find(x=>x.id===editingId)?.created || new Date().toISOString().slice(0,10)) : new Date().toISOString().slice(0,10)
+  };
+
+  await saveEvidenceToIDB(cId, [...uploadedEvidence]);
+
+  let i = cases.findIndex(x=>x.id===c.id);
+  if(i>=0) cases[i] = c; else cases.unshift(c);
+  saveStorage();
+  closeModal();
+  renderDashboard();
+  renderCases();
+  renderKB();
+  showToast(`Case ${c.id} saved successfully with attachments!`, "success");
+};
+
+window.openDetail = async function(id){
+  let c = cases.find(x=>x.id===id);
+  if(!c) return;
+  let evidence = await getEvidenceFromIDB(c.id);
+
+  document.getElementById("detailTitle").textContent = c.id+" — "+c.category;
+  document.getElementById("detailSub").innerHTML = `${c.type} · Department: <b>${c.reporterDept||"—"}</b> · ${c.model||"No model"} · ${c.sn||"No S/N"} · <span class="status ${statusClass(c.status)}">${c.status}</span>`;
+  
+  let evidenceHtml = evidence && evidence.length ? evidence.map(ev => `
+    <div style="border:1px solid #e1e4e8;border-radius:8px;padding:8px;text-align:center;background:#fafbfc">
+      ${ev.type.startsWith('image/') ? `<img src="${ev.data}" style="max-width:100%;height:100px;object-fit:cover;border-radius:4px;cursor:pointer" onclick="openLightbox('${ev.data}')">` : `<a href="${ev.data}" download="${ev.name}" style="font-size:12px;padding:20px 0;display:block;color:#1f6feb;text-decoration:none">📥 Download<br>${ev.name}</a>`}
+      <div style="font-size:11px;color:#666;margin-top:4px;word-break:break-all">${ev.name}</div>
+    </div>
+  `).join('') : '<div class="empty" style="padding:12px">No evidence attached</div>';
+
+  document.getElementById("detailBody").innerHTML = `
+    <div class="detailgrid">
+      <div>
+        <div class="panel">
+          <h2>Problem</h2><p>${c.problem||"—"}</p>
+          <h2>Containment</h2><p>${c.containment||"—"}</p>
+          <h2>Root Cause</h2><p>${c.root||"Pending investigation"}</p>
+          <h2>Corrective Action</h2><p>${c.ca||"—"}</p>
+          <h2>Preventive Action</h2><p>${c.pa||"—"}</p>
+          <h2>Verification</h2><p>${c.verify||"Pending"}</p>
+          <h2>Evidence & Attachments (Up to 100MB)</h2>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px">${evidenceHtml}</div>
+        </div>
+      </div>
+      <div>
+        <div class="panel">
+          <h2>Control</h2>
+          <p><b>Open Date:</b> ${c.created||"—"}</p>
+          <p><b>Department:</b> ${c.reporterDept||"—"}</p>
+          <p><b>Owner:</b> ${c.owner||"—"}</p>
+          <p><b>Due:</b> <span class="${overdue(c)?'red':''}">${c.due||"—"}</span></p>
+          <p><b>Severity:</b> ${c.severity}</p>
+          <p><b>Process:</b> ${c.process}</p>
+          <p><b>Customer:</b> ${c.customer||"—"}</p>
+          <button class="secondary" onclick="editCase('${c.id}')" style="width:100%;margin-bottom:6px">Edit Case</button>
+          <button class="secondary" onclick="aiFromDetail('${c.id}')" style="width:100%;margin-bottom:6px">✦ AI Analyze</button>
+          <button class="secondary" onclick="deleteCase('${c.id}')" style="background:#ffebe9;color:#cf222e;border-color:#ff8182;width:100%">🗑️ Delete Case</button>
+        </div>
+        <div class="panel">
+          <h2>Next QE Action</h2>
+          <p>${c.status==="Closed"?"Case closed. Review lesson learned.":c.status==="Verification"?"Verify effectiveness and close if effective.":c.status==="Waiting"?"Follow up with "+(c.owner||"owner")+" before the due date.":"Confirm evidence and move to the next stage."}</p>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById("detailModal").classList.add("show");
+};
+
+window.closeDetail = function(){ document.getElementById("detailModal").classList.remove("show"); };
+
+window.editCase = async function(id){
+  let c = cases.find(x=>x.id===id);
+  if(!c) return;
+  closeDetail();
+  editingId = id;
+  ["type","reporterDept","customer","model","sn","process","category","severity","owner","due","status"].forEach(k=>document.getElementById("f_"+k).value = c[k]||"");
+  ["problem","containment","root","ca","pa","verify"].forEach(k=>document.getElementById("f_"+k).value = c[k]||"");
+  uploadedEvidence = await getEvidenceFromIDB(c.id);
+  renderEvidencePreview();
+  document.getElementById("modalTitle").textContent = "Edit "+c.id;
+  document.getElementById("caseModal").classList.add("show");
+};
+
+window.deleteCase = async function(id) {
+  closeDetail();
+  let index = cases.findIndex(x => x.id === id);
+  if (index === -1) return;
+  cases.splice(index, 1);
+  if (db) {
+    try {
+      const transaction = db.transaction(STORE_NAME, 'readwrite');
+      transaction.objectStore(STORE_NAME).delete(id);
+    } catch(e) {
+      console.warn("IDB delete note:", e);
+    }
+  }
+  saveStorage();
+  renderDashboard();
+  renderCases();
+  renderKB();
+  showToast(`Case ${id} deleted successfully.`, "success");
+};
+
+function aiText(c){
+  let checks = [];
+  if(c.category==="Soldering") checks = ["Check SPI/AOI result","Check solder paste and stencil condition","Check printing parameters","Check reflow profile","Compare first article vs affected S/N"];
+  else if(c.category==="AOI") checks = ["Review AOI image and program criteria","Check operator judgment","Check repair record","Compare with golden sample"];
+  else if(c.category==="Firmware") checks = ["Verify required firmware by model/variant","Compare required vs actual firmware ID","Check special request/change record","Add verification before testing"];
+  else if(c.category==="Label") checks = ["Verify customer source data","Check PE review record","Check DCC released version","Check obsolete label disposal/control"];
+  else checks = ["Confirm affected S/N and lot","Review process records","Check first article / inspection evidence","Interview process owner","Search historical similar cases"];
+  
+  return `AI PRE-CHECK:\n\nSuggested investigation:\n• ${checks.join('\n• ')}\n\nImportant: treat these as investigation suggestions, not confirmed root cause. Confirm with evidence before recording RCA.`;
+}
+
+window.aiAnalyze = function(){
+  let c = { category: val("f_category"), process: val("f_process"), problem: val("f_problem") };
+  showToast("AI analysis generated!", "success");
+  showToast(aiText(c), "info");
+};
+
+window.aiFromDetail = function(id){
+  let c = cases.find(x=>x.id===id);
+  showToast(aiText(c), "info");
+};
+
+window.openNewImprovement = function() {
+  editingImpId = null;
+  document.getElementById("impForm").reset();
+  document.getElementById("impModalTitle").textContent = "New Improvement";
+  document.getElementById("improvementModal").classList.add("show");
+};
+
+window.closeImpModal = function() {
+  document.getElementById("improvementModal").classList.remove("show");
+};
+
+window.saveImprovement = function(e) {
+  e.preventDefault();
+  let impId = editingImpId || "IMP-2026-" + String(improvements.length + 10).padStart(3, "0");
+  let imp = {
+    id: impId,
+    title: document.getElementById("imp_title").value,
+    process: document.getElementById("imp_process").value,
+    owner: document.getElementById("imp_owner").value || "QE",
+    due: document.getElementById("imp_due").value,
+    status: document.getElementById("imp_status").value,
+    description: document.getElementById("imp_desc").value
+  };
+
+  let idx = improvements.findIndex(x => x.id === impId);
+  if (idx >= 0) improvements[idx] = imp;
+  else improvements.unshift(imp);
+
+  saveStorage();
+  closeImpModal();
+  renderDashboard();
+  renderImprovements();
+  showToast(`Improvement ${imp.id} saved successfully!`, "success");
+};
+
+window.renderImprovements = function(){
+  const q = (document.getElementById("impSearch")?.value || "").toLowerCase();
+  const s = document.getElementById("filterImpStatus")?.value || "";
+  const filtered = improvements.filter(x => (!q || JSON.stringify(x).toLowerCase().includes(q)) && (!s || x.status === s));
+  
+  const container = document.getElementById("improvementTable");
+  if(!container) return;
+  container.innerHTML = filtered.length ? `<table class="table"><thead><tr><th>ID</th><th>Improvement</th><th>Process</th><th>Owner</th><th>Due</th><th>Status</th></tr></thead><tbody>${filtered.map(x=>`<tr class="case-row" onclick="openImpDetail('${x.id}')"><td><b>${x.id}</b></td><td>${x.title}<div class="label">${(x.description||"").slice(0,50)}</div></td><td>${x.process}</td><td>${x.owner}</td><td class="${overdueImp(x)?'red':''}">${x.due||"—"}</td><td><span class="status ${statusClass(x.status)}">${x.status}</span></td></tr>`).join("")}</tbody></table>` : '<div class="empty">No improvement records found</div>';
+};
+
+function overdueImp(x) {
+  return x.status !== "Closed" && x.due && new Date(x.due + "T23:59:59") < new Date();
+}
+
+window.openImpDetail = function(id) {
+  let x = improvements.find(i => i.id === id);
+  if (!x) return;
+  document.getElementById("impDetailTitle").textContent = x.id + " — " + x.title;
+  document.getElementById("impDetailSub").innerHTML = `Process: <b>${x.process}</b> · Owner: ${x.owner || "Unassigned"} · <span class="status ${statusClass(x.status)}">${x.status}</span>`;
+  
+  document.getElementById("impDetailBody").innerHTML = `
+    <div class="detailgrid">
+      <div>
+        <div class="panel">
+          <h2>Description</h2>
+          <p>${x.description || "No description provided."}</p>
+        </div>
+      </div>
+      <div>
+        <div class="panel">
+          <h2>Control</h2>
+          <p><b>Process:</b> ${x.process}</p>
+          <p><b>Owner:</b> ${x.owner || "Unassigned"}</p>
+          <p><b>Due Date:</b> <span class="${overdueImp(x)?'red':''}">${x.due || "None"}</span></p>
+          <p><b>Status:</b> ${x.status}</p>
+          <button class="secondary" onclick="editImprovement('${x.id}')" style="width:100%;margin-bottom:8px">Edit Improvement</button>
+          <button class="secondary" onclick="deleteImprovement('${x.id}')" style="background:#ffebe9;color:#cf222e;border-color:#ff8182;width:100%">🗑️ Delete Improvement</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById("impDetailModal").classList.add("show");
+};
+
+window.closeImpDetail = function() {
+  document.getElementById("impDetailModal").classList.remove("show");
+};
+
+window.editImprovement = function(id) {
+  let x = improvements.find(i => i.id === id);
+  if (!x) return;
+  closeImpDetail();
+  editingImpId = id;
+  document.getElementById("imp_title").value = x.title || "";
+  document.getElementById("imp_process").value = x.process || "SMT";
+  document.getElementById("imp_owner").value = x.owner || "";
+  document.getElementById("imp_due").value = x.due || "";
+  document.getElementById("imp_status").value = x.status || "New";
+  document.getElementById("imp_desc").value = x.description || "";
+  document.getElementById("impModalTitle").textContent = "Edit " + x.id;
+  document.getElementById("improvementModal").classList.add("show");
+};
+
+window.deleteImprovement = function(id) {
+  closeImpDetail();
+  let idx = improvements.findIndex(i => i.id === id);
+  if (idx === -1) return;
+  improvements.splice(idx, 1);
+  saveStorage();
+  renderDashboard();
+  renderImprovements();
+  showToast(`Improvement ${id} deleted successfully.`, "success");
+};
+
+window.renderKB = function(){
+  let q = (document.getElementById("kbSearch")?.value||"").toLowerCase();
+  let a = cases.filter(c => c.status==="Closed" && JSON.stringify(c).toLowerCase().includes(q));
+  const container = document.getElementById("kb");
+  if(!container) return;
+  container.innerHTML = a.length ? a.map(c=>`<div class="panel" style="margin-bottom:10px"><b>${c.id}</b> · ${c.category} · ${c.process}<p><b>Problem:</b> ${c.problem}</p><p><b>Root Cause:</b> ${c.root||"—"}</p><p><b>Prevention:</b> ${c.pa||"—"}</p></div>`).join("") : '<div class="empty">Closed cases will become reusable knowledge here.</div>';
+};
+</script>
+</body>
+</html>
